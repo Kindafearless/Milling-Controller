@@ -59,18 +59,49 @@ on('workflow', (w) => {
 });
 on('blocked', () => toast('Blocked: line contained "(" — S5Pro firmware would hang'));
 
-// ---------- top bar ----------
+// ---------- top bar (connection lives here, on every screen) ----------
+let knownPorts = [];
 function renderTop() {
   $('conn-dot').className = 'dot ' + (state.connected ? 'on' : 'off');
-  $('port-label').textContent = state.port || 'no port';
+  const connected = !!state.port;
+  $('top-port').classList.toggle('hidden', connected);
+  $('port-label').classList.toggle('hidden', !connected);
+  $('port-label').textContent = connected ? state.port.replace(/^\/dev\/(tty|cu)\./, '') : '';
+  $('top-connect').textContent = connected ? 'Disconnect' : 'Connect';
   const b = $('state-badge');
-  const s = state.activeState;
+  const s = connected ? state.activeState : 'offline';
   b.textContent = s;
   b.className = 'badge ' + (
     s === 'Idle' ? 'idle' : s === 'Run' || s === 'Jog' ? 'run' :
     String(s).startsWith('Hold') ? 'hold' : s === 'Alarm' ? 'alarm' : '');
 }
 on('conn', renderTop); on('port', renderTop); on('state', renderTop);
+
+function renderTopPorts() {
+  const sel = $('top-port');
+  const prev = sel.value;
+  sel.innerHTML = knownPorts.length
+    ? knownPorts.map((p) => {
+      const nice = p.port.replace(/^\/dev\/(tty|cu)\./, '');
+      const preferred = p.inuse || /shapeoko/i.test(p.port);
+      return `<option value="${p.port}" ${(!prev && preferred) || prev === p.port ? 'selected' : ''}>${nice}</option>`;
+    }).join('')
+    : '<option value="">no ports found</option>';
+}
+on('ports', (ports) => { knownPorts = ports; renderTopPorts(); });
+
+$('top-connect').addEventListener('click', () => {
+  if (state.port) {
+    if (confirm(`Disconnect from ${state.port}?`)) cnc.closePort();
+  } else {
+    const port = $('top-port').value;
+    if (!port) { cnc.listPorts(); toast('No port selected — refreshed list'); return; }
+    cnc.openPort(port, 115200);
+    toast('Opening ' + port + '…');
+  }
+});
+// keep the port list fresh while disconnected
+setInterval(() => { if (state.connected && !state.port) cnc.listPorts(); }, 5000);
 
 // ---------- monitor ----------
 function renderMonitor() {
