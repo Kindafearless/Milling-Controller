@@ -201,6 +201,38 @@ const appMain = () => {
 
   app.use(i18nextHandle(i18next, {}));
 
+  { // Modes app (Monitor/Prep/Run/Config/Diagnose) — modern no-build-step
+    // frontend served from <repo root>/modes-app. __dirname at runtime is
+    // dist/cncjs/server, so the repo root is three levels up.
+    const modesAppPath = path.resolve(__dirname, '..', '..', '..', 'modes-app');
+    app.use(urljoin(settings.route || '/', 'modes'), serveStatic(modesAppPath, { maxAge: 0 }));
+
+    // Local proxy for the Elgato shop light so the browser avoids CORS.
+    // The light speaks plain HTTP on the LAN; never touches the CNC.
+    const lightUrl = process.env.ELGATO_LIGHT_URL || 'http://elgato-key-light-air-5795.local:9123';
+    app.get(urljoin(settings.route || '/', 'light'), async (req, res) => {
+      try {
+        const r = await fetch(`${lightUrl}/elgato/lights`, { signal: AbortSignal.timeout(5000) });
+        res.status(r.status).json(await r.json());
+      } catch (e) {
+        res.status(502).json({ error: String(e.message || e) });
+      }
+    });
+    app.put(urljoin(settings.route || '/', 'light'), async (req, res) => {
+      try {
+        const r = await fetch(`${lightUrl}/elgato/lights`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req.body),
+          signal: AbortSignal.timeout(5000)
+        });
+        res.status(r.status).json(await r.json());
+      } catch (e) {
+        res.status(502).json({ error: String(e.message || e) });
+      }
+    });
+  }
+
   { // Secure API Access
     app.use(urljoin(settings.route, 'api'), expressJwt({
       secret: config.get('secret'),

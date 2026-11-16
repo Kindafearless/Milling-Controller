@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Milling Controller</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="topbar">
+  <div id="brand">MILLING<span>CTRL</span></div>
+  <nav id="tabs">
+    <button data-mode="monitor" class="tab active">Monitor</button>
+    <button data-mode="prep" class="tab">Prep</button>
+    <button data-mode="run" class="tab">Run</button>
+    <button data-mode="config" class="tab">Config</button>
+    <button data-mode="diagnose" class="tab">Diagnose</button>
+  </nav>
+  <div id="statusbar">
+    <span id="conn-dot" class="dot off" title="server connection"></span>
+    <span id="port-label">no port</span>
+    <span id="state-badge" class="badge">—</span>
+  </div>
+</header>
+
+<main>
+  <!-- ============ MONITOR ============ -->
+  <section id="view-monitor" class="view active">
+    <div class="grid monitor-grid">
+      <div class="card big-state">
+        <div id="mon-state" class="huge">—</div>
+        <div id="mon-workflow" class="sub">workflow: —</div>
+      </div>
+      <div class="card">
+        <h3>Position</h3>
+        <table class="dro">
+          <tr><th></th><th>Work</th><th>Machine</th></tr>
+          <tr><td class="axis">X</td><td id="mon-wx" class="num">0.000</td><td id="mon-mx" class="num dim">0.000</td></tr>
+          <tr><td class="axis">Y</td><td id="mon-wy" class="num">0.000</td><td id="mon-my" class="num dim">0.000</td></tr>
+          <tr><td class="axis">Z</td><td id="mon-wz" class="num">0.000</td><td id="mon-mz" class="num dim">0.000</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h3>Feed &amp; Spindle</h3>
+        <div class="kv"><span>Feed</span><b id="mon-feed">0</b></div>
+        <div class="kv"><span>Spindle</span><b id="mon-spindle">0</b></div>
+        <div class="kv"><span>Overrides</span><b id="mon-ov">—</b></div>
+      </div>
+      <div class="card">
+        <h3>Job</h3>
+        <div class="kv"><span>File</span><b id="mon-file">none</b></div>
+        <div class="progress"><div id="mon-prog" class="bar"></div></div>
+        <div class="kv"><span>Progress</span><b id="mon-pct">—</b></div>
+      </div>
+      <div class="card">
+        <h3>Shop light</h3>
+        <div class="row">
+          <button id="light-toggle" class="btn">…</button>
+          <label>Brightness <input id="light-bri" type="range" min="3" max="100" value="100"></label>
+          <label>Temp <input id="light-temp" type="range" min="143" max="344" value="250" title="mireds (left=cool)"></label>
+        </div>
+        <div id="light-status" class="sub">checking…</div>
+      </div>
+      <div class="card camera">
+        <h3>Camera</h3>
+        <div class="camera-placeholder">camera offline — C920e pending</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PREP ============ -->
+  <section id="view-prep" class="view">
+    <div class="grid prep-grid">
+      <div class="card">
+        <h3>G-code</h3>
+        <input type="file" id="gcode-file" accept=".nc,.gcode,.ngc,.tap,.txt">
+        <div class="kv"><span>Loaded</span><b id="prep-file">none</b></div>
+        <div class="kv"><span>Lines</span><b id="prep-lines">—</b></div>
+        <div class="kv"><span>Extents</span><b id="prep-extents">—</b></div>
+        <div id="prep-paren-warn" class="warn hidden">⚠ file contains “(” comments — they will be stripped by the sender, but prefer a clean post</div>
+      </div>
+      <div class="card span2">
+        <h3>Toolpath (top view)</h3>
+        <canvas id="preview" width="640" height="480"></canvas>
+      </div>
+      <div class="card">
+        <h3>Jog</h3>
+        <div class="jogpad">
+          <button class="btn jog" data-jog="Y,1">Y+</button>
+          <button class="btn jog" data-jog="X,-1">X−</button>
+          <button class="btn jog" data-jog="X,1">X+</button>
+          <button class="btn jog" data-jog="Y,-1">Y−</button>
+          <button class="btn jog" data-jog="Z,1">Z+</button>
+          <button class="btn jog" data-jog="Z,-1">Z−</button>
+        </div>
+        <div class="row">
+          <label>Step <select id="jog-step">
+            <option>0.1</option><option>1</option><option selected>10</option><option>100</option>
+          </select> mm</label>
+          <label>Feed <select id="jog-feed">
+            <option>500</option><option selected>2000</option><option>5000</option>
+          </select></label>
+          <button id="jog-cancel" class="btn warn-btn">Jog cancel</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Work zero</h3>
+        <div class="row">
+          <button class="btn" data-zero="X">Zero X</button>
+          <button class="btn" data-zero="Y">Zero Y</button>
+          <button class="btn" data-zero="Z">Zero Z</button>
+          <button class="btn" data-zero="XY">Zero XY</button>
+        </div>
+        <div class="row">
+          <button id="home-btn" class="btn">Home ($H)</button>
+          <button id="unlock-btn" class="btn warn-btn">Unlock ($X)</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RUN ============ -->
+  <section id="view-run" class="view">
+    <div class="grid run-grid">
+      <div class="card big-state">
+        <div id="run-state" class="huge">—</div>
+        <div class="progress tall"><div id="run-prog" class="bar"></div></div>
+        <div class="kv"><span id="run-file">no file</span><b id="run-pct">—</b></div>
+        <div class="kv"><span>Elapsed</span><b id="run-elapsed">—</b></div>
+        <div class="kv"><span>Remaining</span><b id="run-remaining">—</b></div>
+      </div>
+      <div class="card">
+        <h3>Position</h3>
+        <table class="dro big">
+          <tr><td class="axis">X</td><td id="run-wx" class="num">0.000</td></tr>
+          <tr><td class="axis">Y</td><td id="run-wy" class="num">0.000</td></tr>
+          <tr><td class="axis">Z</td><td id="run-wz" class="num">0.000</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h3>Overrides</h3>
+        <div class="kv"><span>Feed <b id="ov-feed">100%</b></span>
+          <span class="ovbtns">
+            <button class="btn sm" data-ov="feed,-10">−10</button>
+            <button class="btn sm" data-ov="feed,0">reset</button>
+            <button class="btn sm" data-ov="feed,10">+10</button>
+          </span>
+        </div>
+        <div class="kv"><span>Spindle <b id="ov-spindle">100%</b></span>
+          <span class="ovbtns">
+            <button class="btn sm" data-ov="spindle,-10">−10</button>
+            <button class="btn sm" data-ov="spindle,0">reset</button>
+            <button class="btn sm" data-ov="spindle,10">+10</button>
+          </span>
+        </div>
+      </div>
+      <div class="card camera">
+        <h3>Camera</h3>
+        <div class="camera-placeholder">camera offline — C920e pending</div>
+      </div>
+      <div class="card controls">
+        <button id="run-start" class="btn go">▶ Start</button>
+        <button id="run-hold" class="btn hold">HOLD</button>
+        <button id="run-resume" class="btn go">Resume</button>
+        <button id="run-stop" class="btn stop">STOP</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CONFIG ============ -->
+  <section id="view-config" class="view">
+    <div class="grid config-grid">
+      <div class="card">
+        <h3>Connection</h3>
+        <div class="row">
+          <select id="cfg-port"></select>
+          <select id="cfg-baud"><option selected>115200</option><option>250000</option></select>
+          <button id="cfg-refresh" class="btn sm">↻</button>
+        </div>
+        <div class="row">
+          <button id="cfg-open" class="btn go">Open</button>
+          <button id="cfg-close" class="btn warn-btn">Close</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Machine</h3>
+        <div class="kv"><span>Controller</span><b id="cfg-ctl">—</b></div>
+        <div class="kv"><span>Firmware rule</span><b>never send “(”</b></div>
+        <div class="sub">Legacy dashboard: <a href="/" target="_blank">open</a></div>
+      </div>
+      <div class="card span2">
+        <h3>GRBL settings ($$)</h3>
+        <div class="sub">Click a value to edit; Enter writes <code>$n=value</code> to the controller.</div>
+        <table id="cfg-settings" class="settings"><tbody></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DIAGNOSE ============ -->
+  <section id="view-diagnose" class="view">
+    <div class="grid diag-grid">
+      <div class="card span2">
+        <h3>Console</h3>
+        <pre id="console-out"></pre>
+        <div class="row">
+          <input id="console-in" type="text" placeholder="command — lines containing ( are blocked" autocomplete="off">
+          <button id="console-send" class="btn sm">Send</button>
+        </div>
+        <div id="console-warn" class="warn hidden">“(” blocked: the S5Pro firmware hangs on parentheses.</div>
+      </div>
+      <div class="card">
+        <h3>Alarm</h3>
+        <div id="diag-alarm" class="sub">no alarm</div>
+        <div class="row">
+          <button id="diag-unlock" class="btn warn-btn">Unlock ($X)</button>
+          <button id="diag-home" class="btn">Home ($H)</button>
+          <button id="diag-reset" class="btn stop">Soft reset</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Status queries</h3>
+        <div class="row">
+          <button class="btn sm" data-q="?">?</button>
+          <button class="btn sm" data-q="$$">$$</button>
+          <button class="btn sm" data-q="$I">$I</button>
+          <button class="btn sm" data-q="$G">$G</button>
+          <button class="btn sm" data-q="$#">$#</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="hidden"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
