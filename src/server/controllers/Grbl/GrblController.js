@@ -310,7 +310,10 @@ class GrblController {
 
             if (toolChangePolicy === TOOL_CHANGE_POLICY_IGNORE_M6_COMMANDS) {
               // Ignore M6 commands
-              line = replaceM6(line, (x) => `(${x})`); // replace with parentheses
+              // Remove M6 instead of wrapping it in parentheses: the Shapeoko 5
+              // Pro's USB bridge locks up on any line containing "(", and the
+              // sender/feeder ack empty lines without writing to the port.
+              line = replaceM6(line, () => '').trim();
 
               this.feeder.hold({
                 data: 'M6',
@@ -320,7 +323,7 @@ class GrblController {
               // Send M6 commands
             } else if (isManualToolChange) {
               // Manual Tool Change
-              line = replaceM6(line, (x) => `(${x})`); // replace with parentheses
+              line = replaceM6(line, () => '').trim(); // see note above re: Shapeoko 5 Pro
 
               this.feeder.hold({
                 data: 'M6',
@@ -448,7 +451,10 @@ class GrblController {
 
             if (toolChangePolicy === TOOL_CHANGE_POLICY_IGNORE_M6_COMMANDS) {
               // Ignore M6 commands
-              line = replaceM6(line, (x) => `(${x})`); // replace with parentheses
+              // Remove M6 instead of wrapping it in parentheses: the Shapeoko 5
+              // Pro's USB bridge locks up on any line containing "(", and the
+              // sender/feeder ack empty lines without writing to the port.
+              line = replaceM6(line, () => '').trim();
 
               this.event.trigger('gcode:pause');
               this.workflow.pause({
@@ -459,7 +465,7 @@ class GrblController {
               // Send M6 commands
             } else if (isManualToolChange) {
               // Manual Tool Change
-              line = replaceM6(line, (x) => `(${x})`); // replace with parentheses
+              line = replaceM6(line, () => '').trim(); // see note above re: Shapeoko 5 Pro
 
               this.event.trigger('gcode:pause');
               this.workflow.pause({
